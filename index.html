@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Журнал оценок — Викторова Алёна Вячеславовна</title>
+
+<!-- Chart.js and SheetJS (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+  :root{
+    --bg:#0d0d0d;
+    --card:#151515;
+    --panel:#1a0026;
+    --accent:#a64bff;
+    --accent-2:#6b00d9;
+    --text:#ffefff;
+    --muted:#b6a6d9;
+    --muted-2:#8b78a8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,var(--bg),#0b0222);color:var(--text);min-height:100vh}
+
+  /* header */
+  header{background:linear-gradient(90deg,#130020,#2a0036);padding:28px;text-align:center;border-bottom:3px solid rgba(166,75,255,0.12);box-shadow:0 8px 40px rgba(107,0,217,0.12)}
+  header h1{margin:0;font-size:26px;letter-spacing:1.6px;color:var(--text);text-shadow:0 0 8px rgba(166,75,255,0.18)}
+  header p{margin:6px 0 0;color:var(--muted);font-size:14px}
+
+  /* sidebar (burger hover to expand) */
+  .sidebar{
+    position:fixed;left:0;top:0;height:100%;width:60px;overflow:hidden;
+    background:linear-gradient(180deg,var(--panel),#2b002f);border-right:2px solid rgba(107,0,217,0.25);
+    transition:width .28s ease;z-index:1000;padding-top:20px;
+  }
+  .sidebar:hover{width:240px}
+  .burger{width:44px;margin:10px auto 6px;cursor:default}
+  .burger .bar{height:5px;background:var(--muted);margin:6px 0;border-radius:4px;box-shadow:0 0 10px rgba(166,75,255,0.08)}
+  .menu{margin-top:18px;padding-left:8px}
+  .menu button{display:block;width:calc(100% - 16px);margin:8px;padding:12px;border-radius:10px;border:none;background:transparent;color:var(--muted);text-align:left;cursor:pointer;font-weight:600;transition:background .15s, color .15s, transform .12s;opacity:0;transform:translateX(-6px)}
+  .sidebar:hover .menu button{opacity:1;transform:none}
+  .menu button:hover{background:linear-gradient(90deg,rgba(166,75,255,0.12),rgba(107,0,217,0.14));color:var(--text)}
+  .menu button.active{background:linear-gradient(90deg,rgba(166,75,255,0.20),rgba(107,0,217,0.22));color:var(--text)}
+
+  /* content moves when sidebar hover */
+  main{transition:margin-left .28s ease;margin-left:60px;padding:26px 28px}
+  .sidebar:hover ~ main{margin-left:240px}
+
+  /* cards */
+  .card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:18px;box-shadow:0 10px 30px rgba(20,5,30,0.5);border:1px solid rgba(166,75,255,0.03)}
+  h2{margin:0 0 12px 0;color:var(--text)}
+  .muted{color:var(--muted);font-size:13px}
+
+  /* form */
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  input[type=text], input[type=number], select{background:#110014;border:1px solid rgba(166,75,255,0.06);color:var(--text);padding:10px;border-radius:8px;min-width:0}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white;border:none;padding:10px 12px;border-radius:8px;cursor:pointer}
+  button.ghost{background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.03);padding:8px 10px;border-radius:8px;cursor:pointer}
+
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px;color:var(--text)}
+  th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:left}
+  th{background:linear-gradient(90deg,#2b0033,#1b0030);font-weight:700;color:var(--muted)}
+  tbody tr:hover td{background:linear-gradient(90deg,rgba(166,75,255,0.03),transparent)}
+
+  /* responsive */
+  @media(max-width:900px){
+    .sidebar{position:fixed;left:0;top:0;width:60px}
+    .sidebar:hover{width:220px}
+    main{padding:18px}
+  }
+
+  /* small helpers */
+  .small{font-size:13px;color:var(--muted)}
+  .center{display:flex;align-items:center;gap:8px}
+  canvas{background:transparent;border-radius:8px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Журнал оценок</h1>
+  <p>Автор: Викторова Алёна Вячеславовна</p>
+</header>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" aria-hidden="false">
+  <div class="burger" title="Меню (наведите мышь)">
+    <div class="bar"></div>
+    <div class="bar"></div>
+    <div class="bar"></div>
+  </div>
+
+  <nav class="menu" role="navigation" aria-label="Главное меню">
+    <button data-tab="upload" class="active">📥 Загрузка</button>
+    <button data-tab="editor">✏️ Создать / Редактировать</button>
+    <button data-tab="stats_table">📋 Статистика (таблица)</button>
+    <button data-tab="stats_chart">📈 Статистика (графики)</button>
+    <button data-tab="help">❓ Помощь</button>
+    <button data-tab="about">ℹ️ О программе</button>
+  </nav>
+</aside>
+
+<!-- MAIN -->
+<main>
+  <!-- UPLOAD -->
+  <section id="upload" class="card" aria-labelledby="uploadTitle">
+    <h2 id="uploadTitle">Загрузить оценки</h2>
+    <div class="small">Поддерживается: .csv, .txt, .xlsx (UTF-8). Перетащите файл в область или выберите через кнопку.</div>
+
+    <div style="margin-top:12px" class="card" id="drop_area" role="region" aria-label="Зона загрузки" >
+      <div class="center" style="justify-content:space-between">
+        <div>
+          <strong>Зона загрузки</strong>
+          <div class="small">Перетащите файл сюда или нажмите «Выбрать файл».</div>
+        </div>
+        <div class="controls">
+          <input id="file_input" type="file" accept=".csv,.txt,.xlsx" style="display:none">
+          <button class="primary" id="choose_file">Выбрать файл</button>
+          <button class="ghost" id="clear_data">Очистить данные</button>
+        </div>
+      </div>
+      <div id="file_name" class="small" style="margin-top:10px;color:var(--muted)"></div>
+    </div>
+
+    <div id="table_preview" style="margin-top:12px"></div>
+  </section>
+
+  <!-- EDITOR -->
+  <section id="editor" class="card" style="display:none">
+    <h2>Создать / Редактировать журнал</h2>
+    <div class="small">Добавляйте студентов вручную, выбирайте строку таблицы для редактирования.</div>
+
+    <div style="margin-top:12px" class="card">
+      <div class="row">
+        <input id="input_group" type="text" placeholder="Группа (например ББ-309)">
+        <input id="input_last" type="text" placeholder="Фамилия">
+        <input id="input_first" type="text" placeholder="Имя">
+        <input id="input_patron" type="text" placeholder="Отчество">
+      </div>
+
+      <div id="subjects_inputs" style="margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+
+      <div style="margin-top:12px" class="controls">
+        <button class="primary" id="add_student">Добавить</button>
+        <button class="ghost" id="update_student">Применить к выбранной</button>
+        <button class="ghost" id="delete_student">Удалить выбранного</button>
+        <button class="ghost" id="save_csv">Сохранить .csv</button>
+        <button class="ghost" id="export_xlsx">Скачать .xlsx</button>
+      </div>
+    </div>
+
+    <div id="edit_table_wrapper" style="margin-top:12px"></div>
+  </section>
+
+  <!-- STATS TABLE -->
+  <section id="stats_table" class="card" style="display:none">
+    <h2>Табличная статистика</h2>
+    <div class="small">Выберите группу и/или предмет для фильтрации статистики.</div>
+
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:end">
+      <div style="min-width:160px">
+        <label class="small">Группа</label>
+        <select id="stats_group"></select>
+      </div>
+      <div style="min-width:160px">
+        <label class="small">Предмет</label>
+        <select id="stats_subject"></select>
+      </div>
+      <div>
+        <button class="ghost" id="recalc_stats">Обновить</button>
+      </div>
+    </div>
+
+    <div id="stats_table_wrapper" style="margin-top:12px"></div>
+  </section>
+
+ <!-- STATS CHART -->
+<section id="stats_chart" class="card" style="display:none">
+  <h2>Графическая статистика</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+    <!-- Новые графики -->
+    <div class="card"><canvas id="chart_canvas_5" height="180"></canvas></div>
+    <div class="card"><canvas id="chart_canvas_6" height="180"></canvas></div>
+    <div class="card"><canvas id="chart_canvas_7" height="180"></canvas></div>
+    <div class="card"><canvas id="chart_canvas_8" height="180"></canvas></div>
+  </div>
+</section>
+
+  <!-- HELP -->
+  <section id="help" class="card" style="display:none">
+    <h2>Помощь</h2>
+    <div>
+      <p>Краткое руководство:</p>
+      <ul>
+        <li><b>Загрузка</b> — импортируйте .csv/.txt/.xlsx. Файл должен иметь заголовки: <code>Group,LastName,FirstName,Patronymic,ИВТС,ЦОС,ТЭС,Криптография,Философия,Антенны,Физра,ИТ,Коммуникации</code> либо аналогичные.</li>
+        <li><b>Создать / Редактировать</b> — добавляйте студентов вручную, выбирайте строку таблицы для редактирования, удаляйте, сохраняйте.</li>
+        <li><b>Статистика (таблица)</b> — для каждого предмета и группы показываются среднее, медиана, распределение оценок и проценты.</li>
+        <li><b>Статистика (графики)</b> — визуализация: линия средних, гистограммы распределения и т.д.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section id="about" class="card" style="display:none">
+    <h2>О программе / Разработчик</h2>
+    <div style="display:flex;gap:12px;align-items:center">
+       <img src="author.jpg" alt="author" style="border-radius:120px;width:500px">
+      <div>
+      <p><strong>Викторова Алёна Вячеславовна</strong></p>
+<a href="https://e.mail.ru/compose/?to=alyonaviktorova2005@mail.ru" target="_blank" style="color:#ff99ff">
+  alyonaviktorova2005@mail.ru
+</a>
+</a>
+<p>Учебное заведение: Сибирский государственный университет телекоммуникации и информатики.</p>
+<p>Профиль: Безопасность телекоммуникационных систем(по отрасли или в сфере профессиональной деятельности)</p>
+<p>Кафедра: Кафедра безопасности информации и технологий(БИТ)</p>
+<p>Институт: безопасности</p>
+<p>Квалификация: бакалавр</p>
+<p>Форма обучения: Очная</p>
+<p>Срок получения образования: 4г.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ========== Модель данных и конфигурация ========== */
+let data = []; // массив объектов: {Group, LastName, FirstName, Patronymic, ИВТС:5, ...}
+const subjects = ['ИВТС','ЦОС','ТЭС','Криптография','Философия','Антенны','Физра','ИТ','Коммуникации'];
+let selectedIndex = null;
+let chartInstances = [];
+
+/* ---------- Вспомогательные функции ---------- */
+function q(sel){ return document.querySelector(sel); }
+function qa(sel){ return Array.from(document.querySelectorAll(sel)); }
+
+/* CSV парсер (с поддержкой кавычек и BOM) */
+function parseCSV(text, sep=','){
+  // remove BOM if present
+  if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const lines = text.split(/\r\n|\n|\r/).filter(l=>l.trim().length>0);
+  if(lines.length===0) return [];
+  const headers = splitCSVLine(lines[0], sep).map(h=>h.trim());
+  const rows = [];
+  for(let i=1;i<lines.length;i++){
+    const parts = splitCSVLine(lines[i], sep);
+    const obj = {};
+    headers.forEach((h, idx) => { obj[h]= parts[idx] !== undefined ? parts[idx].trim() : ''; });
+    rows.push(obj);
+  }
+  return rows;
+}
+function splitCSVLine(line, sep=','){
+  const re = new RegExp(`\\s*(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|([^${sep}]+))\\s*(?:${sep}|$)`, 'g');
+  const out = [];
+  let match;
+  while((match = re.exec(line)) !== null){
+    let val = match[1]!==undefined ? match[1].replace(/""/g,'"') : (match[2]||'');
+    out.push(val);
+  }
+  return out;
+}
+
+/* Сохранение/загрузка в localStorage */
+function saveToLocal(){ try{ localStorage.setItem('gradebook_vv', JSON.stringify(data)); }catch(e){} }
+function loadFromLocal(){ try{ const raw = localStorage.getItem('gradebook_vv'); if(!raw) return false; data = JSON.parse(raw); return true; }catch(e){return false;} }
+
+/* Обновление селекторов групп/предметов */
+function refreshSelectors(){
+  const groups = Array.from(new Set(data.map(r=>r.Group).filter(Boolean)));
+  const sg = q('#stats_group'); if(sg){ const old = sg.value; sg.innerHTML=''; const o=document.createElement('option'); o.value='ALL'; o.textContent='ALL'; sg.appendChild(o); groups.forEach(g=>{ const opt=document.createElement('option'); opt.value=g; opt.textContent=g; sg.appendChild(opt); }); if(old) sg.value=old; }
+  const ss = q('#stats_subject'); if(ss){ const old = ss.value; ss.innerHTML=''; const o=document.createElement('option'); o.value='ALL'; o.textContent='ALL'; ss.appendChild(o); subjects.forEach(s=>{ const opt=document.createElement('option'); opt.value=s; opt.textContent=s; ss.appendChild(opt); }); if(old) ss.value=old; }
+}
+
+/* ========== РЕНДЕР ТАБЛИЦ ========== */
+function renderTable(containerId, editable=false){
+  const container = q('#'+containerId);
+  if(!container) return;
+  if(data.length===0){ container.innerHTML = '<div class="small">Пока нет данных. Загрузите файл или добавьте запись.</div>'; return; }
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  ['#','Группа','Фамилия','Имя','Отчество', ...subjects].forEach(h=>{ const th=document.createElement('th'); th.textContent=h; headRow.appendChild(th); });
+  thead.appendChild(headRow); table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  data.forEach((row, idx) => {
+    const tr = document.createElement('tr');
+    tr.dataset.index = idx;
+    tr.addEventListener('click', ()=> {
+      selectRow(idx);
+      // при клике на превью — перейти в редактор
+      activateTab('editor');
+    });
+    const cols = [idx+1, row.Group||'', row.LastName||'', row.FirstName||'', row.Patronymic||'', ...subjects.map(s=> row[s]===undefined ? '' : row[s])];
+    cols.forEach(c=>{ const td=document.createElement('td'); td.textContent = c; tr.appendChild(td); });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  container.innerHTML=''; container.appendChild(table);
+}
+
+/* Рендер таблицы в редакторе с кнопками выбора */
+function renderEditTable(){
+  const wrap = q('#edit_table_wrapper');
+  if(!wrap) return;
+  if(data.length===0){ wrap.innerHTML = '<div class="small">Нет данных</div>'; return; }
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  ['#','Группа','Фамилия','Имя','Отчество', ...subjects, 'Действия'].forEach(h=>{ const th=document.createElement('th'); th.textContent=h; headRow.appendChild(th); });
+  thead.appendChild(headRow); table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  data.forEach((row, idx)=>{
+    const tr = document.createElement('tr');
+    const cols = [idx+1, row.Group||'', row.LastName||'', row.FirstName||'', row.Patronymic||'', ...subjects.map(s=> row[s]===undefined ? '' : row[s])];
+    cols.forEach(c=>{ const td=document.createElement('td'); td.textContent = c; tr.appendChild(td); });
+    const tdAct = document.createElement('td');
+    const selBtn = document.createElement('button'); selBtn.className='ghost'; selBtn.textContent='Выбрать'; selBtn.addEventListener('click', ()=> selectRow(idx));
+    tdAct.appendChild(selBtn);
+    tr.appendChild(tdAct);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.innerHTML=''; wrap.appendChild(table);
+}
+
+/* ========== РАБОТА С ВЫБОРКОЙ ========== */
+function selectRow(i){
+  selectedIndex = i;
+  const r = data[i];
+  q('#input_group').value = r.Group||'';
+  q('#input_last').value = r.LastName||'';
+  q('#input_first').value = r.FirstName||'';
+  q('#input_patron').value = r.Patronymic||'';
+  subjects.forEach((s, idx)=>{ const el = q('#subj_'+idx); if(el) el.value = r[s]===undefined ? '' : r[s]; });
+}
+
+/* ========== РЕДАКТИРОВАНИЕ / УПРАВЛЕНИЕ ========== */
+function renderEditSubjects(){
+  const wrap = q('#subjects_inputs'); if(!wrap) return;
+  wrap.innerHTML='';
+  subjects.forEach((s, idx)=>{
+    const div = document.createElement('div'); div.style.display='flex'; div.style.flexDirection='column';
+    const label = document.createElement('label'); label.textContent = s; label.style.marginBottom='6px'; label.className='small';
+    const input = document.createElement('input'); input.type='number'; input.id = 'subj_'+idx; input.min=2; input.max=5; input.placeholder='оценка';
+    div.appendChild(label); div.appendChild(input); wrap.appendChild(div);
+  });
+}
+
+function addStudent(){
+  const obj = {
+    Group: q('#input_group').value.trim() || 'ББ-309',
+    LastName: q('#input_last').value.trim() || '',
+    FirstName: q('#input_first').value.trim() || '',
+    Patronymic: q('#input_patron').value.trim() || ''
+  };
+  subjects.forEach((s, idx)=>{ const v = q('#subj_'+idx).value; obj[s] = v ? Number(v) : ''; });
+  if(!obj.LastName){ alert('Введите фамилию'); return; }
+  data.push(obj); saveToLocal(); refreshAll();
+}
+
+function updateStudent(){
+  if(selectedIndex===null){ alert('Выберите строку'); return; }
+  const obj = data[selectedIndex];
+  obj.Group = q('#input_group').value.trim() || obj.Group;
+  obj.LastName = q('#input_last').value.trim() || obj.LastName;
+  obj.FirstName = q('#input_first').value.trim() || obj.FirstName;
+  obj.Patronymic = q('#input_patron').value.trim() || obj.Patronymic;
+  subjects.forEach((s, idx)=>{ const v = q('#subj_'+idx).value; obj[s] = v ? Number(v) : ''; });
+  data[selectedIndex] = obj; saveToLocal(); refreshAll();
+}
+
+function deleteStudent(){
+  if(selectedIndex===null){ alert('Выберите строку'); return; }
+  if(!confirm('Удалить выбранного студента?')) return;
+  data.splice(selectedIndex,1); selectedIndex=null; saveToLocal(); refreshAll();
+}
+
+/* ========== ЭКСПОРТ ========== */
+function saveCSV(){
+  if(data.length===0){ alert('Нет данных для сохранения'); return; }
+  const headers = ['Group','LastName','FirstName','Patronymic', ...subjects];
+  const rows = data.map(r => headers.map(h => r[h]===undefined ? '' : r[h]));
+  const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(','))].join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'gradebook.csv'; document.body.appendChild(a); a.click(); a.remove();
+}
+
+function exportXLSX(){
+  if(data.length===0){ alert('Нет данных для экспорта'); return; }
+  const header = ['Group','LastName','FirstName','Patronymic', ...subjects];
+  const aoa = data.map(r=> {
+    const row = {};
+    header.forEach(h => row[h] = r[h]===undefined ? '' : r[h]);
+    return row;
+  });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(aoa, {header});
+  XLSX.utils.book_append_sheet(wb, ws, 'Grades');
+  XLSX.writeFile(wb, 'gradebook.xlsx');
+}
+
+/* ========== СТАТИСТИКА ========== */
+function computeStats(filterGroup='ALL', filterSubject='ALL'){
+  const long = [];
+  data.forEach(r => subjects.forEach(s => {
+    const g = r[s]; if(g!==undefined && g!=='') long.push({Group: r.Group||'', Subject: s, Grade: Number(g)});
+  }));
+  let arr = long;
+  if(filterGroup!=='ALL') arr = arr.filter(x => x.Group === filterGroup);
+  if(filterSubject!=='ALL') arr = arr.filter(x => x.Subject === filterSubject);
+  if(arr.length===0) return [];
+  const bySG = {};
+  arr.forEach(x => { const key = x.Subject + '||' + x.Group; if(!bySG[key]) bySG[key]=[]; bySG[key].push(x.Grade); });
+  const rows = [];
+  for(const key in bySG){
+    const [subject, group] = key.split('||');
+    const grades = bySG[key].slice().sort((a,b)=>a-b);
+    const mean = (grades.reduce((a,b)=>a+b,0)/grades.length).toFixed(2);
+    const medianRaw = grades.length%2===1 ? grades[(grades.length-1)/2] : ((grades[grades.length/2-1] + grades[grades.length/2])/2);
+    const median = Number(medianRaw).toFixed(2);
+    const counts = {}; grades.forEach(g=> counts[g] = (counts[g]||0)+1);
+    for(const grade in counts){
+      rows.push({Subject:subject, Group:group, Mean:mean, Median:median, Grade:grade, Count:counts[grade], Percent: ((counts[grade]/grades.length)*100).toFixed(2), Total:grades.length});
+    }
+  }
+  return rows;
+}
+
+function renderStatsTable(){
+  const groupSel = q('#stats_group'); const subjSel = q('#stats_subject');
+  const rows = computeStats(groupSel.value||'ALL', subjSel.value||'ALL');
+  const wrap = q('#stats_table_wrapper');
+  if(!rows || rows.length===0){ wrap.innerHTML = '<div class="small">Нет данных для статистики</div>'; return; }
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  const htr = document.createElement('tr');
+  ['Предмет','Группа','Среднее','Медиана','Оценка','Количество','Процент','Всего'].forEach(h=>{ const th=document.createElement('th'); th.textContent=h; htr.appendChild(th); });
+  thead.appendChild(htr); table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  rows.forEach(r=>{
+    const tr = document.createElement('tr');
+    ['Subject','Group','Mean','Median','Grade','Count','Percent','Total'].forEach(k=>{ const td=document.createElement('td'); td.textContent = r[k]; tr.appendChild(td); });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody); wrap.innerHTML=''; wrap.appendChild(table);
+}
+
+/* ========== ГРАФИКИ ========== */
+function clearCharts(){ chartInstances.forEach(c=>{ try{ c.destroy(); }catch(e){} }); chartInstances=[]; }
+function renderCharts(){
+  clearCharts();
+
+  // ---------- NEW CHARTS ONLY ----------
+  const labels = subjects;
+
+  // 5. Гистограмма оценки по каждой группе
+  const groupLabels = Array.from(new Set(data.map(r=>r.Group)));
+  const groupCounts = groupLabels.map(g => {
+    const arr = data.filter(r=>r.Group===g);
+    const counts = arr.map(r => subjects.map(s=> r[s]!==undefined ? Number(r[s]) : 0)).flat();
+    return counts.reduce((acc,v)=>{
+      acc[v] = (acc[v]||0)+1; return acc;
+    }, {});
+  });
+  const gradeSet = ['2','3','4','5'];
+  const datasets5 = gradeSet.map((g,idx)=>({label:g, data: groupCounts.map(gc=>gc[g]||0), backgroundColor:`rgba(${50+idx*50},${50+idx*30},${200-idx*30},0.7)`}));
+  chartInstances.push(new Chart(q('#chart_canvas_5').getContext('2d'), { type:'bar', data:{labels:groupLabels, datasets:datasets5}, options:{responsive:true, plugins:{legend:{position:'top'}}} }));
+
+  // 6. Линейный график прогресса среднего балла по предметам
+  const meanPerSubject = labels.map(s => {
+    const arr = data.map(r=> r[s]!==undefined && r[s]!=='' ? Number(r[s]) : 0).filter(v=>v>0);
+    return arr.length ? +(arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(2) : 0;
+  });
+  chartInstances.push(new Chart(q('#chart_canvas_6').getContext('2d'), { type:'line', data:{labels, datasets:[{label:'Средний балл по предметам', data:meanPerSubject, borderColor:'rgba(0,200,150,0.9)', backgroundColor:'rgba(0,200,150,0.12)', tension:0.3, fill:true} ]}, options:{responsive:true, plugins:{legend:{display:true}}} }));
+
+  // 7. Radar-график распределения оценок по предметам для всей группы
+  const radarData = labels.map(s=>{
+    const counts = {'2':0,'3':0,'4':0,'5':0};
+    data.forEach(r=>{ if(r[s]!==undefined && r[s]!==''){ counts[r[s]]++; } });
+    return counts['5']+counts['4']; // суммарно хорошие
+  });
+  chartInstances.push(new Chart(q('#chart_canvas_7').getContext('2d'), { type:'radar', data:{labels, datasets:[{label:'Количество 4-5 по предметам', data:radarData, backgroundColor:'rgba(255,165,0,0.2)', borderColor:'rgba(255,165,0,0.9)'}]}, options:{responsive:true, plugins:{legend:{display:true}}} }));
+
+  // 8. Pie chart: процент отличников/хорошистов/троечников/двоечников
+  const pieCounts = {'5':0,'4':0,'3':0,'2':0};
+  data.forEach(r=>subjects.forEach(s=>{ if(r[s]!==undefined && r[s]!==''){ pieCounts[r[s]]++; }}));
+  chartInstances.push(new Chart(q('#chart_canvas_8').getContext('2d'), { type:'pie', data:{labels:['Отличники','Хорошисты','Троечники','Двоечники'], datasets:[{data: ['5','4','3','2'].map(g=>pieCounts[g]), backgroundColor:['#4caf50','#2196f3','#ff9800','#f44336']}]}, options:{responsive:true, plugins:{legend:{position:'right'}}} }));
+}
+
+/* ========== ОБРАБОТКА ФАЙЛОВ ========== */
+const fileInput = q('#file_input');
+const chooseBtn = q('#choose_file');
+const dropArea = q('#drop_area');
+const fileNameEl = q('#file_name');
+
+chooseBtn.addEventListener('click', ()=> fileInput.click());
+fileInput.addEventListener('change', async (e)=>{ if(e.target.files.length) await handleFile(e.target.files[0]); });
+
+// drag & drop
+dropArea.addEventListener('dragover', (e)=>{ e.preventDefault(); dropArea.style.border = '1px dashed rgba(166,75,255,0.6)'; });
+dropArea.addEventListener('dragleave', ()=>{ dropArea.style.border = 'none'; });
+dropArea.addEventListener('drop', async (e)=>{ e.preventDefault(); dropArea.style.border = 'none'; if(e.dataTransfer.files.length) await handleFile(e.dataTransfer.files[0]); });
+
+async function handleFile(file){
+  fileNameEl.textContent = `Файл: ${file.name} — размер ${Math.round(file.size/1024)} КБ`;
+  const name = file.name.toLowerCase();
+  if(name.endsWith('.csv') || name.endsWith('.txt')){
+    const text = await file.text(); // browser handles encoding; ensure BOM removed in parser
+    const parsed = parseCSV(text, ',');
+    // normalize to our format
+    data = parsed.map(r => {
+      const obj = {Group: r.Group||r.Class||'', LastName: r.LastName||'', FirstName: r.FirstName||'', Patronymic: r.Patronymic||''};
+      Object.keys(r).forEach(k => {
+        if(!['Group','Class','LastName','FirstName','Patronymic'].includes(k) && k){
+          obj[k] = r[k];
+        }
+      });
+      return obj;
+    });
+    saveToLocal(); refreshAll();
+  } else if(name.endsWith('.xlsx') || name.endsWith('.xls')){
+    const ab = await file.arrayBuffer();
+    const wb = XLSX.read(ab, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(ws, {defval: ''}); // defval ensures empty cells are ''
+    data = json.map(r => {
+      const obj = {Group: r.Group||r.Class||'', LastName: r.LastName||r.FamilyName||r.Фамилия||'', FirstName: r.FirstName||r.GivenName||r.Имя||'', Patronymic: r.Patronymic||r.Отчество||''};
+      Object.keys(r).forEach(k => {
+        if(!['Group','Class','LastName','FirstName','Patronymic','FamilyName','GivenName','Фамилия','Имя','Отчество'].includes(k) && k){
+          obj[k] = r[k];
+        }
+      });
+      return obj;
+    });
+    saveToLocal(); refreshAll();
+  } else {
+    alert('Неподдерживаемый формат файла. Используйте .csv, .txt или .xlsx');
+  }
+}
+
+/* Очистка */
+q('#clear_data').addEventListener('click', ()=>{ if(!confirm('Очистить все данные?')) return; data=[]; saveToLocal(); refreshAll(); q('#file_name').textContent=''; });
+
+/* ========== РЕФРЕШ ВСЕХ ВИДОВ ИНИЦИАЛИЗАЦИЯ ========== */
+function refreshAll(){
+  renderTable('table_preview');
+  renderEditSubjects();
+  renderEditTable();
+  refreshSelectors();
+  renderStatsTable();
+  renderCharts();
+}
+
+/* ========== TAB SWITCHING ========== */
+qa('.menu button').forEach(btn => btn.addEventListener('click', (e)=>{
+  qa('.menu button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  activateTab(btn.dataset.tab);
+}));
+
+function activateTab(id){
+  qa('main section, main > section, main > div, main > section').forEach(s=>{ /* noop for safety */ });
+  // hide all top-level sections in main: select by id list
+  ['upload','editor','stats_table','stats_chart','help','about'].forEach(name=>{
+    const el = document.getElementById(name);
+    if(el) el.style.display = (name === id ? 'block' : 'none');
+  });
+  // ensure charts re-render if opening chart tab
+  if(id === 'stats_chart') renderCharts();
+}
+
+/* ========== SEARCH FILTER (editor) ========== */
+q('#search_last')?.addEventListener('input', (e)=>{
+  const qv = e.target.value.trim().toLowerCase();
+  if(!qv){ renderEditTable(); return; }
+  const filtered = data.map((r,i)=>({...r,__i:i})).filter(r => (r.LastName||'').toLowerCase().includes(qv));
+  const wrap = q('#edit_table_wrapper');
+  if(!filtered.length){ wrap.innerHTML = '<div class="small">Ничего не найдено</div>'; return; }
+  const table = document.createElement('table'); const thead = document.createElement('thead'); const htr = document.createElement('tr');
+  ['#','Группа','Фамилия','Имя','Отчество', ...subjects,'Действия'].forEach(h=>{ const th=document.createElement('th'); th.textContent=h; htr.appendChild(th);});
+  thead.appendChild(htr); table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  filtered.forEach(row=>{
+    const tr = document.createElement('tr');
+    const cols = [row.__i+1,row.Group,row.LastName,row.FirstName,row.Patronymic, ...subjects.map(s=> row[s]===undefined? '': row[s])];
+    cols.forEach(c=>{ const td=document.createElement('td'); td.textContent=c; tr.appendChild(td); });
+    const tdAct = document.createElement('td'); const selBtn=document.createElement('button'); selBtn.className='ghost'; selBtn.textContent='Выбрать'; selBtn.addEventListener('click', ()=> selectRow(row.__i));
+    tdAct.appendChild(selBtn); tr.appendChild(tdAct); tbody.appendChild(tr);
+  });
+  table.appendChild(tbody); wrap.innerHTML=''; wrap.appendChild(table);
+});
+
+/* ========== ИНИЦИАЛИЗАЦИЯ И ОБРАБОТЧИКИ КНОПОК ========== */
+document.addEventListener('DOMContentLoaded', ()=>{
+  // UI hooks
+  q('#add_student').addEventListener('click', addStudent);
+  q('#update_student').addEventListener('click', updateStudent);
+  q('#delete_student').addEventListener('click', deleteStudent);
+  q('#save_csv').addEventListener('click', saveCSV);
+  q('#export_xlsx').addEventListener('click', exportXLSX);
+  q('#recalc_stats').addEventListener('click', renderStatsTable);
+
+  // try to load saved data
+  const loaded = loadFromLocal();
+  if(!loaded) data = []; // start empty
+  renderEditSubjects();
+  refreshAll();
+
+  // ensure upload is visible initially
+  activateTab('upload');
+});
+
+/* ========== Конец скрипта ========== */
+</script>
+
+</body>
+</html>
